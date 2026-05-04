@@ -1,0 +1,28 @@
+{
+  "name": "kudos",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build --webpack",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@slack/web-api": "^7.10.0",
+    "@supabase/supabase-js": "^2.104.0",
+    "@tailwindcss/postcss": "^4.2.2",
+    "next": "^16.2.3",
+    "postcss": "^8.5.9",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "satori": "^0.26.0",
+    "tailwindcss": "^4.2.2"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.3",
+    "@types/react": "19.1.2",
+    "@types/react-dom": "19.1.2",
+    "typescript": "5.8.3"
+  }
+}
