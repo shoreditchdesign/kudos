@@ -1,0 +1,37 @@
+name: Schedule Thursday reminders
+
+# Fires Thursday morning UTC. The endpoint it calls uses Slack's
+# chat.scheduleMessage to queue all four reminders at the exact London
+# times (09:00, 12:00, 15:00, 16:00) — Slack delivers them precisely.
+#
+# 06:00 UTC is 07:00 BST in summer and 06:00 GMT in winter. Either way,
+# we're scheduling well ahead of the 09:00 London first-call.
+#
+# `workflow_dispatch` lets you run the workflow manually from the GitHub
+# Actions tab — useful for testing or recovering from a failed Thursday.
+on:
+  schedule:
+    - cron: "0 6 * * 4"
+  workflow_dispatch:
+
+jobs:
+  schedule:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Trigger schedule-week
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [[ -z "$APP_BASE_URL" || -z "$CRON_SECRET" ]]; then
+            echo "::error::APP_BASE_URL and CRON_SECRET must both be set as repo secrets"
+            exit 1
+          fi
+          response=$(
+            curl -fsSL -X POST \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              -w "\nHTTP %{http_code}\n" \
+              "$APP_BASE_URL/api/cron/schedule-week"
+          )
+          echo "$response"

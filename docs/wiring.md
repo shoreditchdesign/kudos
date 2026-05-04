@@ -124,9 +124,51 @@ Copy the output and paste as `CRON_SECRET` in `.env.local`.
 
 ---
 
-## 4. Deploy to Vercel
+## 4. GitHub Actions (weekly schedule trigger)
 
-### 4a. Create the project
+Vercel Hobby cron only runs once per day per job, which doesn't fit our four-times-on-Thursday schedule. Instead we use **GitHub Actions** to fire once a week — the workflow calls the app's `/api/cron/schedule-week` endpoint, which uses Slack's `chat.scheduleMessage` API to queue all four reminders for delivery at the exact London times. Slack itself handles the timing; we just need one weekly trigger.
+
+The workflow file lives at `.github/workflows/reminders.yml` (already in the repo). It fires every Thursday at 06:00 UTC.
+
+You need to add **two repository secrets** in GitHub:
+
+1. Open your GitHub repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
+2. Add `APP_BASE_URL` with your Vercel deploy URL (e.g. `https://kudos-abc123.vercel.app`, no trailing slash).
+3. Add `CRON_SECRET` with the same value you set in Vercel's env vars.
+
+That's it. The first scheduled run fires next Thursday at 06:00 UTC.
+
+### Manual smoke test
+
+Once both secrets are set, you can trigger the workflow on demand without waiting for Thursday:
+
+1. Open the **Actions** tab in your GitHub repo.
+2. Pick **Schedule Thursday reminders** in the left sidebar.
+3. Click **Run workflow** → **Run workflow**.
+
+Expected: the run completes in ~10 seconds and the response body is a JSON like:
+
+```json
+{
+  "scheduled": [
+    { "slot": "morning",   "postAt": 1746086400, "messageId": "Q01ABC234" },
+    { "slot": "midday",    "postAt": 1746097200, "messageId": "Q02DEF567" },
+    { "slot": "last_call", "postAt": 1746108000, "messageId": "Q03GHI890" },
+    { "slot": "closed",    "postAt": 1746111600, "messageId": "Q04JKL123" }
+  ],
+  "cancelledExisting": 0
+}
+```
+
+The endpoint is idempotent — re-running it on the same day clears the previous batch of scheduled messages from `#uk-office` and queues a fresh four.
+
+Cost: free. GitHub Actions on private repos includes 2,000 minutes/month; we use ~30 seconds per run × 1 run/week × 4 weeks = 2 minutes/month.
+
+---
+
+## 5. Deploy the Next.js app to Vercel
+
+### 5a. Create the project
 
 1. Go to https://vercel.com/new.
 2. Import the GitHub repo `shoreditchdesign/kudos`.
@@ -141,11 +183,11 @@ Copy the output and paste as `CRON_SECRET` in `.env.local`.
    - `CRON_SECRET`
 5. Click **Deploy**. First deploy takes ~2 min.
 
-### 4b. Update `APP_BASE_URL`
+### 5b. Update `APP_BASE_URL`
 
 After the deploy succeeds you'll see the URL (e.g. `https://kudos-abc123.vercel.app`). Go to **Settings → Environment Variables**, edit `APP_BASE_URL` to that URL (no trailing slash), and **Redeploy** from the **Deployments** tab.
 
-### 4c. Update the Slack app URLs
+### 5c. Update the Slack app URLs
 
 Now that you have a stable deploy URL, go back to the Slack app config:
 
@@ -154,7 +196,13 @@ Now that you have a stable deploy URL, go back to the Slack app config:
 
 ---
 
-## 5. Smoke test
+## 6. Update GitHub repo secrets after the first Vercel deploy
+
+If you set `APP_BASE_URL` in step 4 to a placeholder before knowing your Vercel URL, update it now in the repo's **Settings → Secrets and variables → Actions**. The workflow will pick up the new value on its next run (no re-deploy needed).
+
+---
+
+## 7. Smoke test
 
 1. Hit `https://<your-url>/api/health` in a browser. Expect `{ "db": "ok", "slack_token_set": true, "reminder_channel_set": true, … }`.
 2. In Slack, run `/win` somewhere — it should pop a modal with a person picker + textarea + the "Add whole team" checkbox (once we ship the layout work).
@@ -167,7 +215,7 @@ Now that you have a stable deploy URL, go back to the Slack app config:
 
 - **`/win` says "dispatch_failed"** — Slack couldn't reach your Request URL. Most often: URL is wrong, deploy has crashed, or env vars are missing. Check Vercel's deployment logs.
 - **Modal opens but submit does nothing** — Interactivity Request URL is wrong, or `SLACK_SIGNING_SECRET` doesn't match the app you installed. Double-check both.
-- **Reminders don't post on Thursday** — Vercel Cron runs in UTC. Open Vercel's **Cron Jobs** tab in the project settings to see invocation history. The handler decides whether to actually post based on London local time, so a successful invocation that returns `{ posted: false }` is normal for non-reminder hours.
+- **Reminders don't post on Thursday** — check GitHub's **Actions** tab: confirm the most recent **Schedule Thursday reminders** run was green. If it was, look at the run's logs to see the JSON response from the schedule-week endpoint — `scheduled` should list four entries. If it's empty or errors, double-check that `CRON_SECRET` and `APP_BASE_URL` match exactly between GitHub repo secrets and Vercel env vars. If the action fired but the messages didn't appear in Slack, run `chat.scheduledMessages.list` in Slack's API tester to see whether they were queued (sometimes the bot's `chat:write.public` scope is missing).
 - **"SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set"** — env vars haven't propagated; force a redeploy.
 
 ---

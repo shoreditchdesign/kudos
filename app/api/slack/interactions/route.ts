@@ -5,7 +5,9 @@ import {
   MESSAGE_BLOCK_ID,
   RECIPIENTS_BLOCK_ID,
   parseSubmission,
+  winModalView,
 } from "@/lib/slack/modal";
+import { REMINDER_ACTION_IDS } from "@/lib/slack/reminders";
 import { insertWin } from "@/lib/wins";
 import { slack } from "@/lib/slack/client";
 import { MEMBERS_BY_SLACK_ID } from "@/config/members";
@@ -36,6 +38,24 @@ export async function POST(req: Request) {
     payload = JSON.parse(payloadRaw) as Record<string, unknown>;
   } catch {
     return new NextResponse("bad payload", { status: 400 });
+  }
+
+  // Block-level button clicks (e.g. "Send a win" from a reminder post).
+  // The "Open copy page" button is URL-only and never reaches us.
+  if (payload.type === "block_actions") {
+    const triggerId = (payload as { trigger_id?: string }).trigger_id;
+    const actions =
+      (payload as { actions?: Array<{ action_id?: string }> }).actions ?? [];
+    const actionId = actions[0]?.action_id;
+
+    if (actionId === REMINDER_ACTION_IDS.openWinModal && triggerId) {
+      void slack()
+        .views.open({ trigger_id: triggerId, view: winModalView() })
+        .catch((err: unknown) => {
+          console.error("[slack:interactions] views.open failed", err);
+        });
+    }
+    return new NextResponse(null, { status: 200 });
   }
 
   if (payload.type !== "view_submission") {

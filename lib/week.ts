@@ -126,20 +126,99 @@ export function formatWeekLabel(weekStartDate: string): string {
 }
 
 /**
- * Which reminder slot (if any) corresponds to the current London hour. Used
- * by /api/cron/reminders to decide what to post. Returns null when the
- * hourly cron tick lands outside the four reminder slots.
+ * Reminder slots for the Thursday cadence. The actual posting times in
+ * London are:
+ *   09:00 morning   — first call for the week's wins
+ *   12:00 midday    — second call
+ *   15:00 last_call — third call
+ *   16:00 closed    — submissions closed, includes link to the copy page
+ *
+ * The GitHub Action fires once a week and calls /api/cron/schedule-week,
+ * which uses Slack's chat.scheduleMessage to queue all four reminders for
+ * delivery at the exact London times below — no per-slot cron needed.
  */
 export type ReminderSlot = "morning" | "midday" | "last_call" | "closed";
 
-export function reminderSlotForNow(now: Date = new Date()): ReminderSlot | null {
+export const REMINDER_HOURS_LONDON: Record<ReminderSlot, number> = {
+  morning: 9,
+  midday: 12,
+  last_call: 15,
+  closed: 16,
+};
+
+/**
+ * Given any moment, return the next Thursday's date in London. If `now` is
+ * itself Thursday and the time is before the last reminder (16:00), today
+ * is returned. After Thursday 17:00 London, advance to next week.
+ */
+function nextThursdayLondon(now: Date): { year: number; month: number; day: number } {
   const parts = getLondonParts(now);
-  // Reminders only run Mon–Fri.
-  if (parts.weekday === "Saturday" || parts.weekday === "Sunday") return null;
-  if (parts.hour === 9) return "morning";
-  if (parts.hour === 13) return "midday";
-  if (parts.hour === 15) return "last_call";
-  // The 16:00 "closed" message only fires on Thursday.
-  if (parts.hour === 16 && parts.weekday === "Thursday") return "closed";
-  return null;
+
+  const WEEKDAY_NUMBER: Record<string, number> = {
+    Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3,
+    Thursday: 4, Friday: 5, Saturday: 6,
+  };
+  const today = WEEKDAY_NUMBER[parts.weekday] ?? 0;
+
+  let daysUntil = (4 - today + 7) % 7; // 4 = Thursday
+  if (daysUntil === 0 && parts.hour >= 17) {
+    daysUntil = 7; // already past today's last reminder, go to next week
+  }
+
+  const anchor = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, 12, 0, 0));
+  anchor.setUTCDate(anchor.getUTCDate() + daysUntil);
+  const result = getLondonParts(anchor);
+  return { year: result.year, month: result.month, day: result.day };
+}
+
+/**
+ * London IANA offset in minutes for a given UTC reference moment. Returns
+ * +60 in BST and 0 in GMT. Uses Intl's longOffset format ("GMT+01:00")
+ * which is robust across DST transitions.
+ */
+function londonOffsetMinutes(referenceUtc: Date): number {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: WORKSPACE_TIMEZONE,
+    timeZoneName: "longOffset",
+  });
+  const offsetStr = formatter
+    .formatToParts(referenceUtc)
+    .find((p) => p.type === "timeZoneName")?.value;
+  if (!offsetStr) return 0;
+  const m = offsetStr.match(/GMT([+-])(\d{2}):(\d{2})/);
+  if (!m) return 0;
+  const sign = m[1] === "+" ? 1 : -1;
+  return sign * (Number(m[2]) * 60 + Number(m[3]));
+}
+
+/**
+ * Unix epoch (seconds) for a London wall-clock time on a given date.
+ * Handles BST/GMT transparently.
+ */
+function londonEpochSeconds(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+): number {
+  const reference = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const offsetMin = londonOffsetMinutes(reference);
+  const utcMs = Date.UTC(year, month - 1, day, hour, 0, 0) - offsetMin * 60_000;
+  return Math.floor(utcMs / 1000);
+}
+
+/**
+ * Compute unix epoch (seconds) for each of Thursday's four reminder slots,
+ * relative to `now`. Used by the schedule-week endpoint to pass `post_at`
+ * to Slack's chat.scheduleMessage.
+ */
+export function thursdayTimestamps(
+  now: Date = new Date(),
+): Record<ReminderSlot, number> {
+  const { year, month, day } = nextThursdayLondon(now);
+  const out = {} as Record<ReminderSlot, number>;
+  for (const slot of Object.keys(REMINDER_HOURS_LONDON) as ReminderSlot[]) {
+    out[slot] = londonEpochSeconds(year, month, day, REMINDER_HOURS_LONDON[slot]);
+  }
+  return out;
 }
