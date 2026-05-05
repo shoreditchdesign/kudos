@@ -26,7 +26,11 @@ export async function POST(req: Request) {
   const command = params.get("command") ?? "";
   const triggerId = params.get("trigger_id") ?? "";
 
-  if (command !== "/win") {
+  // Slack only sends commands registered on this app, so any incoming
+  // command from a verified request is one we registered. We accept it
+  // regardless of the literal name so renaming the slash command in
+  // Slack admin doesn't require a code change.
+  if (!command.startsWith("/") || !triggerId) {
     return NextResponse.json(
       { response_type: "ephemeral", text: `Unknown command: ${command}` },
     );

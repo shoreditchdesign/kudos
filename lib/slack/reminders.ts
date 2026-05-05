@@ -24,7 +24,7 @@ const ACTION_OPEN_COPY_PAGE = "open_copy_page";
 
 function morning(): ReminderPayload {
   return {
-    text: "It's win time. Drop a kudo with /win whenever you have a moment.",
+    text: "It's win time. Drop a kudo with /kudos whenever you have a moment.",
     blocks: [
       {
         type: "section",
@@ -32,7 +32,7 @@ function morning(): ReminderPayload {
           type: "mrkdwn",
           text:
             ":sparkles: *It's win time.*\n" +
-            "What's a teammate done well this week? Tap below or run `/win`.",
+            "What's a teammate done well this week? Tap below or run `/kudos`.",
         },
       },
       {
@@ -61,7 +61,7 @@ function morning(): ReminderPayload {
 
 function midday(): ReminderPayload {
   return {
-    text: "Halfway there — /win is still open.",
+    text: "Halfway there — /kudos is still open.",
     blocks: [
       {
         type: "section",
@@ -69,7 +69,7 @@ function midday(): ReminderPayload {
           type: "mrkdwn",
           text:
             ":eyes: *Halfway through the day.*\n" +
-            "Got someone to thank from this week? `/win` is still open.",
+            "Got someone to thank from this week? `/kudos` is still open.",
         },
       },
       {
@@ -98,7 +98,7 @@ function midday(): ReminderPayload {
 
 function lastCall(): ReminderPayload {
   return {
-    text: "Last call. /win closes in one hour.",
+    text: "Last call. /kudos closes in one hour.",
     blocks: [
       {
         type: "section",
@@ -106,7 +106,7 @@ function lastCall(): ReminderPayload {
           type: "mrkdwn",
           text:
             ":hourglass_flowing_sand: *Last call.*\n" +
-            "`/win` closes in *one hour*. Get them in before 4pm.",
+            "`/kudos` closes in *one hour*. Get them in before 4pm.",
         },
       },
       {
