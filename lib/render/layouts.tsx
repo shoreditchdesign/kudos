@@ -16,7 +16,6 @@ import type { StickerPlacement } from "./stickers";
 const TOKENS = {
   bg: "#FFFFFF",
   fg: "#0B0B0B",
-  rail: "#231E21",
   // The coral capsule colour is baked into the headshot PNGs themselves —
   // we don't paint a coloured background underneath. For unknown-member
   // fallbacks we use the same token so the placeholder feels consistent.
@@ -27,7 +26,6 @@ const TYPE = {
   message: { weight: 700, size: 64, letterSpacing: -2.3305 },
   caption: { weight: 700, size: 21.578, letterSpacing: 0.29, lineHeight: 28.004 },
   sender: { weight: 500, size: 42, letterSpacing: -1.7683 },
-  rail: { weight: 500, size: 20.48, letterSpacing: 0 },
 } as const;
 
 // Right-panel layout (shared by all variants).
@@ -97,41 +95,6 @@ function imageSrc(publicPath: string): string {
 // ---------------------------------------------------------------------------
 // shared chrome
 // ---------------------------------------------------------------------------
-
-function LeftRail() {
-  // Vertically rotated "Weekly win" text in Cabinet Grotesk Medium 20.48px,
-  // colour #231E21, anchored top-left of the slide. The other decorative
-  // glyphs (top-right brand mark, bottom-left circle) are intentionally
-  // skipped in v1 — they would require static SVG assets we don't have yet.
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: 41.28,
-        top: 593,
-        width: 26.88,
-        height: 372.48,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <div
-        style={{
-          transform: "rotate(-90deg)",
-          color: TOKENS.rail,
-          fontFamily: "Cabinet Grotesk",
-          fontWeight: TYPE.rail.weight,
-          fontSize: TYPE.rail.size,
-          whiteSpace: "nowrap",
-          display: "flex",
-        }}
-      >
-        Weekly win
-      </div>
-    </div>
-  );
-}
 
 function RightPanel({ message, senderFullName }: { message: string; senderFullName: string }) {
   return (
@@ -424,7 +387,6 @@ export function renderSlideJsx(
         display: "flex",
       }}
     >
-      <LeftRail />
       <HeadshotGrid slide={slide} />
       <StickerLayer stickers={stickers} />
       <RightPanel message={slide.message} senderFullName={slide.senderFullName} />
