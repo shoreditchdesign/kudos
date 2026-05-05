@@ -8,6 +8,17 @@ import {
 } from "./week";
 import { EVERYONE_SENTINEL } from "@/config/members";
 
+/**
+ * Maximum message length. Capped at the longest text that fits the slide's
+ * quote block in Cabinet Grotesk Bold 64px. The DB CHECK constraint must
+ * match.
+ *
+ * Update this value in two places when you change the cap:
+ *   1. here (validation + Slack modal),
+ *   2. supabase/migrations/0002_message_length_cap.sql (DB constraint).
+ */
+export const MESSAGE_MAX = 320;
+
 export type WinRow = {
   id: string;
   sender_slack_id: string;
@@ -42,7 +53,9 @@ export async function insertWin(input: {
 }): Promise<{ id: string }> {
   const message = input.message.trim();
   if (!message) throw new Error("message is required");
-  if (message.length > 2000) throw new Error("message exceeds 2000 characters");
+  if (message.length > MESSAGE_MAX) {
+    throw new Error(`message exceeds ${MESSAGE_MAX} characters`);
+  }
 
   let recipients: string[];
   if (input.isEveryone) {

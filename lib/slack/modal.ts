@@ -4,10 +4,12 @@
 //   - everyone (optional checkbox): "Add whole team — overrides selected people"
 //   - recipients: multi_users_select (Slack-native @-mention picker, optional
 //     when the "everyone" box is ticked)
-//   - message: multi-line plain_text_input (max 2000 chars)
+//   - message: multi-line plain_text_input (capped at MESSAGE_MAX chars)
 //
 // Slack does not allow a single picker to mix users + user-groups; user-group
 // support is intentionally deferred (see docs/master-architecture.md §15).
+
+import { MESSAGE_MAX } from "@/lib/wins";
 
 export const MODAL_CALLBACK_ID = "submit_win";
 export const RECIPIENTS_BLOCK_ID = "recipients_block";
@@ -69,7 +71,7 @@ export function winModalView() {
           type: "plain_text_input" as const,
           action_id: MESSAGE_ACTION_ID,
           multiline: true,
-          max_length: 2000,
+          max_length: MESSAGE_MAX,
           placeholder: {
             type: "plain_text" as const,
             text: "Be specific. Past tense. No need to overthink it.",

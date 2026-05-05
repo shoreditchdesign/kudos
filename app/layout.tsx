@@ -9,11 +9,12 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  // The `dark` class on <html> activates the dark palette defined in
+  // globals.css. Drop it (or swap to a system-preference toggle) if you
+  // want light mode — every shadcn token has both variants.
   return (
     <html lang="en" className="dark">
-      <body className="bg-background text-foreground antialiased">
-        {children}
-      </body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
