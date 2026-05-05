@@ -389,7 +389,7 @@ export function renderSlideJsx(
     >
       <HeadshotGrid slide={slide} />
       <StickerLayer stickers={stickers} />
-      <RightPanel message={slide.message} senderFullName={slide.senderFullName} />
+      <RightPanel message={slide.message} senderFullName={slide.sender.fullName} />
     </div>
   );
 }

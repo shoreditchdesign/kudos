@@ -98,12 +98,17 @@ function buildSampleSlide(variant: string, overrideCount: number): WinSlide {
 
   return {
     winId: `demo-${variant}`,
+    createdAt: new Date().toISOString(),
     variant: baseVariant,
     isEveryone,
     recipients,
     overflowCount,
     message: SAMPLE_MESSAGE,
-    senderFullName: SAMPLE_SENDER,
+    sender: {
+      slackUserId: "DEMO",
+      fullName: SAMPLE_SENDER,
+      headshotPath: MEMBERS[2]?.headshotPath ?? "/headshots/computer.png",
+    },
   };
 }
 

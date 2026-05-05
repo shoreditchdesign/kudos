@@ -1,4 +1,4 @@
-name: Schedule Thursday reminders
+name: Schedule Bot for Week
 
 # Fires Thursday morning UTC. The endpoint it calls uses Slack's
 # chat.scheduleMessage to queue all four reminders at the exact London

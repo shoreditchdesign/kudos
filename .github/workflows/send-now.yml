@@ -1,0 +1,44 @@
+name: Send Bot in Channel
+
+# Manual-only. Posts a reminder message to #uk-office immediately when run.
+# Useful for testing the bot's appearance, copy, and buttons without waiting
+# for Thursday.
+#
+# Pick which slot's message to send via the dropdown when triggering the run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: "Which reminder to send"
+        required: true
+        default: "morning"
+        type: choice
+        options:
+          - morning
+          - midday
+          - last_call
+          - closed
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Post to #uk-office
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SLOT: ${{ github.event.inputs.slot }}
+        run: |
+          if [[ -z "$APP_BASE_URL" || -z "$CRON_SECRET" ]]; then
+            echo "::error::APP_BASE_URL and CRON_SECRET must both be set as repo secrets"
+            exit 1
+          fi
+          response=$(
+            curl -fsSL -X POST \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              -w "\nHTTP %{http_code}\n" \
+              "$APP_BASE_URL/api/cron/send-now?slot=$SLOT"
+          )
+          echo "$response"

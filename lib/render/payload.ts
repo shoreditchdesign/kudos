@@ -28,12 +28,11 @@ function toSlide(row: {
   sender_slack_id: string;
   recipient_slack_ids: string[];
   message: string;
+  created_at: string;
 }): WinSlide {
   const isEveryone = isEveryoneRecipientList(row.recipient_slack_ids);
-  const sender = resolveMember(row.sender_slack_id);
+  const senderMember = resolveMember(row.sender_slack_id);
 
-  // Resolve up to 6 recipient members for the headshot grid. If
-  // is_everyone, we don't need any.
   const visibleRecipients = isEveryone
     ? []
     : row.recipient_slack_ids.slice(0, 6).map((id) => {
@@ -56,12 +55,17 @@ function toSlide(row: {
 
   return {
     winId: row.id,
+    createdAt: row.created_at,
     variant,
     isEveryone,
     recipients: visibleRecipients,
     overflowCount,
     message: row.message,
-    senderFullName: sender.fullName,
+    sender: {
+      slackUserId: senderMember.slackUserId,
+      fullName: senderMember.fullName,
+      headshotPath: senderMember.headshotPath,
+    },
   };
 }
 

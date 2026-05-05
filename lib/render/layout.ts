@@ -30,6 +30,7 @@ export type WinRecipient = {
 
 export type WinSlide = {
   winId: string;
+  createdAt: string;
   variant: LayoutVariant;
   isEveryone: boolean;
   /**
@@ -43,7 +44,7 @@ export type WinSlide = {
    */
   overflowCount: number;
   message: string;
-  senderFullName: string;
+  sender: WinRecipient;
 };
 
 export type WeekPayload = {

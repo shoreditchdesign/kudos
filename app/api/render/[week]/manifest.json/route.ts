@@ -4,6 +4,7 @@ import { buildWeekPayload } from "@/lib/render/payload";
 export const dynamic = "force-dynamic";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const PREVIEW_LENGTH = 140;
 
 export async function GET(
   _req: Request,
@@ -16,8 +17,6 @@ export async function GET(
 
   const payload = await buildWeekPayload(week);
 
-  // Per-slide manifest so the copy page can render one card per win without
-  // re-fetching every PNG to know how many there are.
   return NextResponse.json({
     weekStartDate: payload.weekStartDate,
     weekEndDate: payload.weekEndDate,
@@ -25,10 +24,21 @@ export async function GET(
     slides: payload.slides.map((s, i) => ({
       index: i,
       winId: s.winId,
+      createdAt: s.createdAt,
       variant: s.variant,
       isEveryone: s.isEveryone,
-      recipientCount: s.recipients.length + s.overflowCount,
-      senderFullName: s.senderFullName,
+      sender: s.sender,
+      recipients: s.recipients,
+      overflowCount: s.overflowCount,
+      messagePreview: truncate(s.message, PREVIEW_LENGTH),
     })),
   });
+}
+
+function truncate(s: string, max: number): string {
+  if (s.length <= max) return s;
+  const slice = s.slice(0, max);
+  const lastSpace = slice.lastIndexOf(" ");
+  const cut = lastSpace > max - 10 ? slice.slice(0, lastSpace) : slice;
+  return cut.trimEnd() + "…";
 }

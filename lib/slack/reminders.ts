@@ -161,6 +161,39 @@ const REMINDERS: Record<ReminderSlot, (appBaseUrl: string) => ReminderPayload> =
 };
 
 /**
+ * Build the Slack message payload for a single reminder slot. Used both by
+ * the scheduler and by the immediate-send endpoint.
+ */
+export function getReminderPayload(
+  slot: ReminderSlot,
+  appBaseUrl: string,
+): ReminderPayload {
+  return REMINDERS[slot](appBaseUrl);
+}
+
+/**
+ * Post a reminder slot's message immediately (no scheduling). Used by the
+ * "Send Bot in Channel" GitHub workflow for testing or one-off broadcasts.
+ */
+export async function postReminderNow(input: {
+  slot: ReminderSlot;
+  channel: string;
+  appBaseUrl: string;
+}): Promise<{ ok: true; ts: string } | { ok: false; error: string }> {
+  const payload = REMINDERS[input.slot](input.appBaseUrl);
+  const res = await slack().chat.postMessage({
+    channel: input.channel,
+    text: payload.text,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    blocks: payload.blocks as any,
+  });
+  if (!res.ok || !res.ts) {
+    return { ok: false, error: res.error ?? "unknown" };
+  }
+  return { ok: true, ts: res.ts };
+}
+
+/**
  * Idempotently schedule all four Thursday reminders via Slack's
  * chat.scheduleMessage. Called from /api/cron/schedule-week, which is
  * triggered by GitHub Actions weekly.
