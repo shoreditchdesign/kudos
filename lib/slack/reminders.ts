@@ -126,7 +126,7 @@ function lastCall(): ReminderPayload {
 
 function closed(appBaseUrl: string): ReminderPayload {
   return {
-    text: `This week's wins are in. Open the copy page at ${appBaseUrl}.`,
+    text: `This week's wins are in. Copy them at ${appBaseUrl}.`,
     blocks: [
       {
         type: "section",
@@ -134,7 +134,7 @@ function closed(appBaseUrl: string): ReminderPayload {
           type: "mrkdwn",
           text:
             ":tada: *This week's wins are in.*\n" +
-            "Thanks to everyone who submitted. Operator — slides are ready to copy below.",
+            "Wins closed for this week. See you at End of Week!",
         },
       },
       {
@@ -142,7 +142,7 @@ function closed(appBaseUrl: string): ReminderPayload {
         elements: [
           {
             type: "button",
-            text: { type: "plain_text", text: "Open copy page", emoji: true },
+            text: { type: "plain_text", text: "Copy Wins", emoji: true },
             url: appBaseUrl,
             style: "primary",
             action_id: ACTION_OPEN_COPY_PAGE,

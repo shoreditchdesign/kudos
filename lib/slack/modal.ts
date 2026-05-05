@@ -30,6 +30,18 @@ export function winModalView() {
     blocks: [
       {
         type: "input" as const,
+        block_id: RECIPIENTS_BLOCK_ID,
+        optional: true,
+        label: { type: "plain_text" as const, text: "Who's it for?" },
+        element: {
+          type: "multi_users_select" as const,
+          action_id: RECIPIENTS_ACTION_ID,
+          placeholder: { type: "plain_text" as const, text: "Pick people" },
+          max_selected_items: 30,
+        },
+      },
+      {
+        type: "input" as const,
         block_id: EVERYONE_BLOCK_ID,
         optional: true,
         label: { type: "plain_text" as const, text: " " },
@@ -44,23 +56,11 @@ export function winModalView() {
               },
               description: {
                 type: "plain_text" as const,
-                text: "Sends to everyone — overrides the selection below.",
+                text: "Sends to everyone — overrides the selection above.",
               },
               value: EVERYONE_OPTION_VALUE,
             },
           ],
-        },
-      },
-      {
-        type: "input" as const,
-        block_id: RECIPIENTS_BLOCK_ID,
-        optional: true,
-        label: { type: "plain_text" as const, text: "Who's it for?" },
-        element: {
-          type: "multi_users_select" as const,
-          action_id: RECIPIENTS_ACTION_ID,
-          placeholder: { type: "plain_text" as const, text: "Pick people" },
-          max_selected_items: 30,
         },
       },
       {

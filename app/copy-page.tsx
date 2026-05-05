@@ -82,12 +82,6 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
   const [copyStates, setCopyStates] = useState<Record<number, CopyState>>({});
   const [page, setPage] = useState(0);
 
-  // "Copy all" step-through state — null when idle, else the index of the
-  // NEXT slide to copy on the next click. After all slides are copied, the
-  // button resets.
-  const [stepIndex, setStepIndex] = useState<number | null>(null);
-  const [stepState, setStepState] = useState<CopyState>("idle");
-
   const clipboardSupported =
     typeof window !== "undefined" && "ClipboardItem" in window;
 
@@ -96,8 +90,6 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
     let cancelled = false;
     setManifest(null);
     setCopyStates({});
-    setStepIndex(null);
-    setStepState("idle");
     setPage(0);
     setManifestState("loading");
 
@@ -157,54 +149,6 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
     }
   }
 
-  /**
-   * Step-through copy. The system clipboard only holds one image at a time,
-   * so "Copy all" walks the operator through each slide:
-   *
-   *   click 1 → copies slide 0, button asks for next
-   *   (paste in Figma)
-   *   click 2 → copies slide 1, button asks for next
-   *   ...
-   *   click N → copies slide N-1, button reads "Done"
-   */
-  async function copyAllStep(total: number) {
-    const targetIndex = stepIndex === null ? 0 : stepIndex;
-    if (targetIndex >= total) {
-      // Done — reset.
-      setStepIndex(null);
-      setStepState("idle");
-      return;
-    }
-    setStepState("copying");
-    try {
-      await copySlideToClipboard(selected, targetIndex);
-      setStepState("copied");
-      setStepIndex(targetIndex + 1);
-      setTimeout(() => {
-        setStepState("idle");
-      }, 1200);
-    } catch (err) {
-      console.error("[copy-all] slide", targetIndex, "failed:", err);
-      setStepState("error");
-      setTimeout(() => {
-        setStepState("idle");
-      }, 2500);
-    }
-  }
-
-  function copyAllLabel(total: number): string {
-    if (stepIndex === null) return "Copy all";
-    if (stepIndex >= total) return "All copied · reset";
-    if (stepState === "copying") return `Copying ${stepIndex + 1} of ${total}…`;
-    if (stepState === "error") return `Failed · retry slide ${stepIndex + 1}`;
-    if (stepState === "copied") {
-      return stepIndex === total
-        ? "All copied · reset"
-        : `Slide ${stepIndex} copied — paste, then click for ${stepIndex + 1}/${total}`;
-    }
-    return `Paste ${stepIndex} — then click for ${stepIndex + 1}/${total}`;
-  }
-
   const slides = manifest?.slides ?? [];
   const totalPages = Math.max(1, Math.ceil(slides.length / PAGE_SIZE));
   const visibleSlides = useMemo(
@@ -213,16 +157,16 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
   );
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-[800px] flex-col gap-8 p-8">
+    <main className="mx-auto flex min-h-screen max-w-[800px] flex-col gap-8 px-8 py-24">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Kudos</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="font-cabinet text-3xl font-semibold">Kudos</h1>
+        <p className="text-base text-muted-foreground">
           Weekly wins, ready to paste into Figma.
         </p>
       </header>
 
       {weeks.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-base text-muted-foreground">
           No closed weeks yet — submissions open until Thursday 16:00 Europe/London.
         </p>
       ) : (
@@ -243,38 +187,26 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
             <Button
               disabled={!manifest || manifest.slideCount === 0}
               asChild={Boolean(manifest && manifest.slideCount > 0)}
+              className="bg-[#FF593F] text-white hover:bg-[#FF593F]/90"
             >
               {manifest && manifest.slideCount > 0 ? (
                 <a href={`/api/render/${selected}/all.zip`} download>
                   <Download className="size-4" />
-                  Download .zip
+                  Download All
                 </a>
               ) : (
                 <span>
                   <Download className="size-4" />
-                  Download .zip
+                  Download All
                 </span>
               )}
-            </Button>
-            <Button
-              variant="outline"
-              disabled={
-                !manifest ||
-                manifest.slideCount === 0 ||
-                !clipboardSupported ||
-                stepState === "copying"
-              }
-              onClick={() => manifest && copyAllStep(manifest.slideCount)}
-            >
-              <CopyButtonIcon state={stepState} />
-              {manifest ? copyAllLabel(manifest.slideCount) : "Copy all"}
             </Button>
           </section>
 
           {manifestState === "loading" ? <FeedSkeleton /> : null}
 
           {manifestState === "error" ? (
-            <p className="text-sm text-destructive">
+            <p className="text-base text-destructive">
               Couldn&apos;t load this week.{" "}
               <button
                 onClick={() => setSelected(selected)}
@@ -287,7 +219,7 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
 
           {manifest ? (
             <>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-base text-muted-foreground">
                 {manifest.slideCount}{" "}
                 {manifest.slideCount === 1 ? "weekly win" : "weekly wins"}
                 {totalPages > 1
@@ -296,13 +228,13 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
               </p>
 
               {!clipboardSupported ? (
-                <p className="rounded-md border border-amber-700 bg-amber-950/40 p-3 text-sm text-amber-200">
+                <p className="rounded-md border border-amber-700 bg-amber-950/40 p-3 text-base text-amber-200">
                   Your browser doesn&apos;t support clipboard images. Try Chrome
                   or Safari.
                 </p>
               ) : null}
 
-              <section className="flex flex-col gap-3">
+              <section className="flex flex-col gap-4">
                 {visibleSlides.map((s) => (
                   <WinCard
                     key={s.winId}
@@ -324,7 +256,7 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
                     <ChevronLeft className="size-4" />
                     Previous
                   </Button>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-base text-muted-foreground">
                     {page + 1} / {totalPages}
                   </span>
                   <Button
@@ -360,7 +292,7 @@ function WinCard({
 }) {
   return (
     <Card>
-      <CardContent className="flex flex-col gap-3 p-4">
+      <CardContent className="flex flex-col gap-[18px] p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <Avatar className="size-9">
@@ -373,18 +305,17 @@ function WinCard({
               />
             </Avatar>
             <div className="flex flex-col">
-              <span className="text-sm font-medium leading-tight">
+              <span className="text-base font-medium leading-tight">
                 {slide.sender.fullName}
               </span>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
                 {formatTime(slide.createdAt)}
               </span>
             </div>
           </div>
 
           <Button
-            size="sm"
-            variant="outline"
+            variant="white"
             disabled={!canCopy || state === "copying"}
             onClick={onCopy}
           >
@@ -393,11 +324,11 @@ function WinCard({
           </Button>
         </div>
 
-        <p className="text-sm leading-relaxed text-foreground">
+        <p className="text-base leading-snug text-foreground line-clamp-2">
           {slide.messagePreview}
         </p>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2">
           {slide.isEveryone ? (
             <Badge variant="secondary">Whole team</Badge>
           ) : (
@@ -438,7 +369,7 @@ function RecipientStack({
         ))}
       </div>
       {overflow > 0 ? (
-        <Badge variant="secondary" className="text-xs">
+        <Badge variant="secondary" className="text-sm">
           +{overflow}
         </Badge>
       ) : null}
@@ -471,7 +402,7 @@ function FeedSkeleton() {
       <Skeleton className="h-4 w-32" />
       {Array.from({ length: 3 }).map((_, i) => (
         <Card key={i}>
-          <CardContent className="flex flex-col gap-3 p-4">
+          <CardContent className="flex flex-col gap-[18px] p-4">
             <div className="flex items-center gap-3">
               <Skeleton className="size-9 rounded-full" />
               <div className="flex flex-col gap-1">
