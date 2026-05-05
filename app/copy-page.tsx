@@ -118,6 +118,28 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
     };
   }, [selected]);
 
+  // Prefetch all slide PNGs in the background as soon as the manifest is
+  // known. Two wins:
+  //   1. Warms Vercel's per-route edge cache (5min) so downstream requests
+  //      from the ZIP route or from the user's clipboard click are instant.
+  //   2. Cold-start render time (~3-5s) doesn't break clipboard.write, which
+  //      has a ~5s internal timeout on the user-gesture promise.
+  useEffect(() => {
+    if (!manifest || manifest.slideCount === 0) return;
+    const controller = new AbortController();
+    for (const s of manifest.slides) {
+      // Fire-and-forget; "force-cache" lets the browser dedupe with the
+      // later clipboard fetch.
+      fetch(`/api/render/${selected}/${s.index}.png`, {
+        cache: "force-cache",
+        signal: controller.signal,
+      }).catch(() => {
+        // ignore — prefetch is best-effort
+      });
+    }
+    return () => controller.abort();
+  }, [manifest, selected]);
+
   async function copyOne(index: number) {
     setCopyStates((s) => ({ ...s, [index]: "copying" }));
     try {
