@@ -6,9 +6,8 @@ import { renderSlidePng } from "@/lib/render/render";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Demo route — renders one variant against synthetic data so the operator
-// can review the layout before any Slack/Supabase wiring exists. Disabled
-// in production deployments.
+// Demo route — renders one variant against synthetic data, no DB hit
+// required. Useful for verifying the Satori pipeline in any environment.
 //
 // Usage:
 //   /api/render/demo/solo
@@ -43,10 +42,6 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ variant: string }> },
 ) {
-  if (process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "demo disabled in production" }, { status: 404 });
-  }
-
   const { variant } = await params;
   if (!VALID.has(variant)) {
     return NextResponse.json({ error: `unknown variant ${variant}` }, { status: 400 });
