@@ -17,22 +17,31 @@ export async function GET(
 
   const payload = await buildWeekPayload(week);
 
-  return NextResponse.json({
-    weekStartDate: payload.weekStartDate,
-    weekEndDate: payload.weekEndDate,
-    slideCount: payload.slides.length,
-    slides: payload.slides.map((s, i) => ({
-      index: i,
-      winId: s.winId,
-      createdAt: s.createdAt,
-      variant: s.variant,
-      isEveryone: s.isEveryone,
-      sender: s.sender,
-      recipients: s.recipients,
-      overflowCount: s.overflowCount,
-      messagePreview: truncate(s.message, PREVIEW_LENGTH),
-    })),
-  });
+  return NextResponse.json(
+    {
+      weekStartDate: payload.weekStartDate,
+      weekEndDate: payload.weekEndDate,
+      slideCount: payload.slides.length,
+      slides: payload.slides.map((s, i) => ({
+        index: i,
+        winId: s.winId,
+        createdAt: s.createdAt,
+        variant: s.variant,
+        isEveryone: s.isEveryone,
+        sender: s.sender,
+        recipients: s.recipients,
+        overflowCount: s.overflowCount,
+        messagePreview: truncate(s.message, PREVIEW_LENGTH),
+      })),
+    },
+    {
+      headers: {
+        // 30s cache. Re-selecting the same week is instant; new wins land in
+        // the feed within 30s of the next page reload.
+        "Cache-Control": "public, max-age=30, s-maxage=30",
+      },
+    },
+  );
 }
 
 function truncate(s: string, max: number): string {

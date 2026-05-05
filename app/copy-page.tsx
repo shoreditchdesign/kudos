@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Copy, Check, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import Image from "next/image";
+import { Copy, Check, AlertCircle, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import type { WeekListItem } from "@/lib/wins";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,7 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 
 type SlideManifest = {
   index: number;
@@ -48,6 +48,30 @@ type CopyState = "idle" | "copying" | "copied" | "error";
 
 const PAGE_SIZE = 15;
 
+/**
+ * Copies a single slide PNG to the system clipboard.
+ *
+ * The Promise-based ClipboardItem form (passing fetch directly, not a pre-
+ * resolved Blob) is the cross-browser-safe pattern. Safari requires the
+ * write to happen synchronously with the user gesture; pre-fetching the
+ * Blob breaks that gesture link.
+ */
+async function copySlideToClipboard(week: string, index: number): Promise<void> {
+  if (!("ClipboardItem" in window)) {
+    throw new Error("Clipboard API not supported in this browser");
+  }
+  const url = `/api/render/${week}/${index}.png`;
+  const item = new ClipboardItem({
+    "image/png": fetch(url, { cache: "no-store" }).then(async (res) => {
+      if (!res.ok) {
+        throw new Error(`render returned ${res.status}`);
+      }
+      return res.blob();
+    }),
+  });
+  await navigator.clipboard.write([item]);
+}
+
 export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
   const initial = weeks[0]?.weekStartDate ?? "";
   const [selected, setSelected] = useState(initial);
@@ -58,6 +82,12 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
   const [copyStates, setCopyStates] = useState<Record<number, CopyState>>({});
   const [page, setPage] = useState(0);
 
+  // "Copy all" step-through state — null when idle, else the index of the
+  // NEXT slide to copy on the next click. After all slides are copied, the
+  // button resets.
+  const [stepIndex, setStepIndex] = useState<number | null>(null);
+  const [stepState, setStepState] = useState<CopyState>("idle");
+
   const clipboardSupported =
     typeof window !== "undefined" && "ClipboardItem" in window;
 
@@ -66,6 +96,8 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
     let cancelled = false;
     setManifest(null);
     setCopyStates({});
+    setStepIndex(null);
+    setStepState("idle");
     setPage(0);
     setManifestState("loading");
 
@@ -86,27 +118,69 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
     };
   }, [selected]);
 
-  async function copySlide(week: string, index: number) {
+  async function copyOne(index: number) {
     setCopyStates((s) => ({ ...s, [index]: "copying" }));
     try {
-      const res = await fetch(`/api/render/${week}/${index}.png`, {
-        cache: "no-store",
-      });
-      if (!res.ok) throw new Error(`render ${res.status}`);
-      const blob = await res.blob();
-      await navigator.clipboard.write([
-        new ClipboardItem({ "image/png": blob }),
-      ]);
+      await copySlideToClipboard(selected, index);
       setCopyStates((s) => ({ ...s, [index]: "copied" }));
       setTimeout(() => {
         setCopyStates((s) => ({ ...s, [index]: "idle" }));
       }, 1500);
-    } catch {
+    } catch (err) {
+      console.error("[copy] slide", index, "failed:", err);
       setCopyStates((s) => ({ ...s, [index]: "error" }));
       setTimeout(() => {
         setCopyStates((s) => ({ ...s, [index]: "idle" }));
-      }, 2000);
+      }, 2500);
     }
+  }
+
+  /**
+   * Step-through copy. The system clipboard only holds one image at a time,
+   * so "Copy all" walks the operator through each slide:
+   *
+   *   click 1 → copies slide 0, button asks for next
+   *   (paste in Figma)
+   *   click 2 → copies slide 1, button asks for next
+   *   ...
+   *   click N → copies slide N-1, button reads "Done"
+   */
+  async function copyAllStep(total: number) {
+    const targetIndex = stepIndex === null ? 0 : stepIndex;
+    if (targetIndex >= total) {
+      // Done — reset.
+      setStepIndex(null);
+      setStepState("idle");
+      return;
+    }
+    setStepState("copying");
+    try {
+      await copySlideToClipboard(selected, targetIndex);
+      setStepState("copied");
+      setStepIndex(targetIndex + 1);
+      setTimeout(() => {
+        setStepState("idle");
+      }, 1200);
+    } catch (err) {
+      console.error("[copy-all] slide", targetIndex, "failed:", err);
+      setStepState("error");
+      setTimeout(() => {
+        setStepState("idle");
+      }, 2500);
+    }
+  }
+
+  function copyAllLabel(total: number): string {
+    if (stepIndex === null) return "Copy all";
+    if (stepIndex >= total) return "All copied · reset";
+    if (stepState === "copying") return `Copying ${stepIndex + 1} of ${total}…`;
+    if (stepState === "error") return `Failed · retry slide ${stepIndex + 1}`;
+    if (stepState === "copied") {
+      return stepIndex === total
+        ? "All copied · reset"
+        : `Slide ${stepIndex} copied — paste, then click for ${stepIndex + 1}/${total}`;
+    }
+    return `Paste ${stepIndex} — then click for ${stepIndex + 1}/${total}`;
   }
 
   const slides = manifest?.slides ?? [];
@@ -117,7 +191,7 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
   );
 
   return (
-    <main className="dark mx-auto flex min-h-screen max-w-[800px] flex-col gap-8 p-8">
+    <main className="mx-auto flex min-h-screen max-w-[800px] flex-col gap-8 p-8">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">Kudos</h1>
         <p className="text-sm text-muted-foreground">
@@ -131,7 +205,7 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
         </p>
       ) : (
         <>
-          <section className="flex items-center gap-3">
+          <section className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Select value={selected} onValueChange={setSelected}>
               <SelectTrigger className="flex-1">
                 <SelectValue placeholder="Pick a week" />
@@ -145,15 +219,33 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
               </SelectContent>
             </Select>
             <Button
+              disabled={!manifest || manifest.slideCount === 0}
+              asChild={Boolean(manifest && manifest.slideCount > 0)}
+            >
+              {manifest && manifest.slideCount > 0 ? (
+                <a href={`/api/render/${selected}/all.zip`} download>
+                  <Download className="size-4" />
+                  Download .zip
+                </a>
+              ) : (
+                <span>
+                  <Download className="size-4" />
+                  Download .zip
+                </span>
+              )}
+            </Button>
+            <Button
+              variant="outline"
               disabled={
                 !manifest ||
                 manifest.slideCount === 0 ||
-                !clipboardSupported
+                !clipboardSupported ||
+                stepState === "copying"
               }
-              onClick={() => manifest && copySlide(selected, 0)}
+              onClick={() => manifest && copyAllStep(manifest.slideCount)}
             >
-              <Copy className="size-4" />
-              Copy first
+              <CopyButtonIcon state={stepState} />
+              {manifest ? copyAllLabel(manifest.slideCount) : "Copy all"}
             </Button>
           </section>
 
@@ -194,7 +286,7 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
                     key={s.winId}
                     slide={s}
                     state={copyStates[s.index] ?? "idle"}
-                    onCopy={() => copySlide(selected, s.index)}
+                    onCopy={() => copyOne(s.index)}
                     canCopy={clipboardSupported}
                   />
                 ))}
@@ -250,13 +342,13 @@ function WinCard({
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <Avatar className="size-9">
-              <AvatarImage
+              <Image
                 src={slide.sender.headshotPath}
                 alt={slide.sender.fullName}
+                width={72}
+                height={72}
+                className="size-full object-cover"
               />
-              <AvatarFallback>
-                {initialOf(slide.sender.fullName)}
-              </AvatarFallback>
             </Avatar>
             <div className="flex flex-col">
               <span className="text-sm font-medium leading-tight">
@@ -313,10 +405,13 @@ function RecipientStack({
             key={r.slackUserId}
             className="size-6 border-2 border-background"
           >
-            <AvatarImage src={r.headshotPath} alt={r.fullName} />
-            <AvatarFallback className="text-[10px]">
-              {initialOf(r.fullName)}
-            </AvatarFallback>
+            <Image
+              src={r.headshotPath}
+              alt={r.fullName}
+              width={48}
+              height={48}
+              className="size-full object-cover"
+            />
           </Avatar>
         ))}
       </div>
@@ -374,10 +469,6 @@ function FeedSkeleton() {
       ))}
     </div>
   );
-}
-
-function initialOf(name: string): string {
-  return name.charAt(0).toUpperCase();
 }
 
 function formatTime(iso: string | null): string {
