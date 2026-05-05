@@ -50,11 +50,24 @@ export function db(): SupabaseClient<Database> {
     throw new Error("db() must not be called in a browser context");
   }
 
-  const url = process.env.SUPABASE_URL;
+  const rawUrl = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
+  if (!rawUrl || !key) {
     throw new Error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set");
   }
+
+  // supabase-js appends `/rest/v1/...` to whatever URL we pass. If the env
+  // var has a trailing slash or path segment, the final URL becomes
+  // `//rest/v1/...` or `…/rest/v1/rest/v1/...` and PostgREST rejects with
+  // PGRST125. Normalize defensively: keep only `https://<host>`.
+  const url = (() => {
+    try {
+      const u = new URL(rawUrl);
+      return `${u.protocol}//${u.host}`;
+    } catch {
+      return rawUrl.replace(/\/+$/, "");
+    }
+  })();
 
   _client = createSupabaseClient<Database>(url, key, {
     auth: {

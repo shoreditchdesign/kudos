@@ -14,6 +14,10 @@ export async function GET() {
     db_url_host: process.env.SUPABASE_URL
       ? safeHost(process.env.SUPABASE_URL)
       : undefined,
+    db_url_pathname: process.env.SUPABASE_URL
+      ? safePathname(process.env.SUPABASE_URL)
+      : undefined,
+    db_url_has_trailing_slash: process.env.SUPABASE_URL?.endsWith("/") ?? false,
     db_service_key_set: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
     db_service_key_prefix: process.env.SUPABASE_SERVICE_ROLE_KEY
       ? `${process.env.SUPABASE_SERVICE_ROLE_KEY.slice(0, 4)}…(${process.env.SUPABASE_SERVICE_ROLE_KEY.length} chars)`
@@ -38,6 +42,14 @@ async function checkDb(): Promise<{ ok: true } | { ok: false; error: string }> {
 function safeHost(url: string): string {
   try {
     return new URL(url).host;
+  } catch {
+    return "(invalid URL)";
+  }
+}
+
+function safePathname(url: string): string {
+  try {
+    return new URL(url).pathname;
   } catch {
     return "(invalid URL)";
   }
