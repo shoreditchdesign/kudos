@@ -1,7 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { cabinetGrotesk } from "./fonts";
+import { satoshi } from "./fonts";
 
 export const metadata: Metadata = {
   title: "Kudos",
@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   // globals.css. Drop it (or swap to a system-preference toggle) if you
   // want light mode — every shadcn token has both variants.
   return (
-    <html lang="en" className={`dark ${cabinetGrotesk.variable}`}>
+    <html lang="en" className={`dark ${satoshi.variable}`}>
       <body className="antialiased">{children}</body>
     </html>
   );

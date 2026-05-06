@@ -1,9 +1,10 @@
 import "server-only";
 import { db } from "./db";
 import {
-  currentClosedWeekStart,
+  allWeekStartsSince,
   currentWeekStart,
   formatWeekLabel,
+  isWeekClosed,
   weekEndDate,
 } from "./week";
 import { EVERYONE_SENTINEL } from "@/config/members";
@@ -28,10 +29,13 @@ export type WinRow = {
   created_at: string;
 };
 
+export type WeekStatus = "closed" | "in_progress";
+
 export type WeekListItem = {
   weekStartDate: string;
   weekEndDate: string;
   label: string;
+  status: WeekStatus;
 };
 
 /**
@@ -103,32 +107,22 @@ export async function getWeekWins(weekStartDate: string): Promise<WinRow[]> {
 }
 
 /**
- * The list of closed weeks that have at least one win. Drives the dropdown
- * on the copy page. Capped to ~6 months of history.
+ * Every Friday since the project's start (2026-01-02), most recent first.
+ * Each entry is annotated with its status — `closed` if the Thursday 12:00
+ * cutoff has passed, `in_progress` otherwise.
+ *
+ * The dropdown shows all weeks (including empty ones) so the operator can
+ * test empty/locked states. The page filters its display by status.
  */
-export async function listClosedWeeks(limit = 26): Promise<WeekListItem[]> {
-  const cap = currentClosedWeekStart();
-
-  const { data, error } = await db()
-    .from("wins")
-    .select("week_start_date")
-    .lte("week_start_date", cap)
-    .order("week_start_date", { ascending: false })
-    .limit(limit * 50); // overshoot then dedupe; pg has no distinct-on via the JS client
-
-  if (error) throw new Error(`listClosedWeeks failed: ${error.message}`);
-
-  const seen = new Set<string>();
-  const out: WeekListItem[] = [];
-  for (const row of (data ?? []) as { week_start_date: string }[]) {
-    if (seen.has(row.week_start_date)) continue;
-    seen.add(row.week_start_date);
-    out.push({
-      weekStartDate: row.week_start_date,
-      weekEndDate: weekEndDate(row.week_start_date),
-      label: formatWeekLabel(row.week_start_date),
-    });
-    if (out.length >= limit) break;
-  }
-  return out;
+export async function listClosedWeeks(limit = 30): Promise<WeekListItem[]> {
+  const all = allWeekStartsSince();
+  return all
+    .reverse()
+    .slice(0, limit)
+    .map((d) => ({
+      weekStartDate: d,
+      weekEndDate: weekEndDate(d),
+      label: formatWeekLabel(d),
+      status: isWeekClosed(d) ? ("closed" as const) : ("in_progress" as const),
+    }));
 }

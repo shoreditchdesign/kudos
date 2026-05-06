@@ -1,15 +1,17 @@
 import localFont from "next/font/local";
 
-// Cabinet Grotesk loaded for the browser. Same `.otf` files are also read
-// by the Satori slide renderer (lib/render/fonts.ts). Exposed as the CSS
-// variable --font-cabinet so it can be referenced from globals.css's
-// @theme block as a Tailwind font utility (`font-cabinet`).
-export const cabinetGrotesk = localFont({
+// Satoshi loaded for the browser. Drop additional weights at the paths below
+// (Satoshi-Medium.otf, Satoshi-Bold.otf) and the loader will pick them up
+// without further code changes — comment back in the entries.
+//
+// The Satori slide renderer (lib/render/fonts.ts) reads Cabinet Grotesk OTFs
+// directly from public/fonts/ and is independent of this loader.
+export const satoshi = localFont({
   src: [
-    { path: "../public/fonts/CabinetGrotesk-Regular.otf", weight: "400", style: "normal" },
-    { path: "../public/fonts/CabinetGrotesk-Medium.otf", weight: "500", style: "normal" },
-    { path: "../public/fonts/CabinetGrotesk-Bold.otf", weight: "700", style: "normal" },
+    { path: "../public/fonts/Satoshi-Regular.otf", weight: "400", style: "normal" },
+    // { path: "../public/fonts/Satoshi-Medium.otf", weight: "500", style: "normal" },
+    // { path: "../public/fonts/Satoshi-Bold.otf", weight: "700", style: "normal" },
   ],
-  variable: "--font-cabinet",
+  variable: "--font-satoshi",
   display: "swap",
 });

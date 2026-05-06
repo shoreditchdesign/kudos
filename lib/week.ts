@@ -78,22 +78,55 @@ export function currentWeekStart(now: Date = new Date()): string {
 
 /**
  * The Friday (YYYY-MM-DD) that begins the most recent week whose Thursday
- * 16:00 cutoff has passed. This is what the operator-facing dropdown caps at.
+ * 12:00 cutoff has passed. This is what the operator-facing dropdown caps at
+ * — submissions can still come in until the 16:00 reminder, but the page
+ * makes the week visible from noon so the operator can preview.
  *
  * Logic:
- *   - if it's currently after Thursday 16:00 in London, the *current* week is
+ *   - if it's currently after Thursday 12:00 in London, the *current* week is
  *     closed and is therefore the most recent closed week.
  *   - otherwise, the previous week is.
  */
 export function currentClosedWeekStart(now: Date = new Date()): string {
   const parts = getLondonParts(now);
-  const isPastCutoff = parts.weekday === "Thursday" && parts.hour >= 16;
+  const isPastCutoff = parts.weekday === "Thursday" && parts.hour >= 12;
 
-  // The Thursday end of the current digest week (which started on a Friday).
-  // If today is Thursday and we're past cutoff, "current week" is closed.
-  // Otherwise we step back one full week.
   const cur = currentWeekStart(now);
   return isPastCutoff ? cur : shiftYmd(cur, -7);
+}
+
+/**
+ * The first Friday in 2026 — used as the floor for the dropdown's week list.
+ * Anything earlier is below the project's start date and won't appear.
+ */
+export const FIRST_FRIDAY_OF_2026 = "2026-01-02";
+
+/**
+ * Generate all Fridays from `start` up to and including the current week's
+ * Friday (whether that week is closed or still in progress). Used to populate
+ * the dropdown with every week — empty or full — since the project began.
+ */
+export function allWeekStartsSince(
+  start: string = FIRST_FRIDAY_OF_2026,
+  now: Date = new Date(),
+): string[] {
+  const cap = currentWeekStart(now);
+  const out: string[] = [];
+  let cursor = start;
+  while (cursor <= cap) {
+    out.push(cursor);
+    cursor = shiftYmd(cursor, 7);
+  }
+  return out;
+}
+
+/**
+ * True when the given Friday is at or before the most-recent-closed-week
+ * Friday (i.e. its Thursday 12:00 cutoff has passed). False for the current
+ * in-progress week.
+ */
+export function isWeekClosed(weekStartDate: string, now: Date = new Date()): boolean {
+  return weekStartDate <= currentClosedWeekStart(now);
 }
 
 /**

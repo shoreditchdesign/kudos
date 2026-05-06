@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Copy, Check, AlertCircle, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Calendar, Copy, Check, AlertCircle, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import type { WeekListItem } from "@/lib/wins";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -85,12 +85,25 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
   const clipboardSupported =
     typeof window !== "undefined" && "ClipboardItem" in window;
 
+  const selectedWeek = useMemo(
+    () => weeks.find((w) => w.weekStartDate === selected) ?? null,
+    [weeks, selected],
+  );
+
   useEffect(() => {
     if (!selected) return;
-    let cancelled = false;
     setManifest(null);
     setCopyStates({});
     setPage(0);
+
+    // In-progress weeks aren't fetched — they show the locked empty state
+    // regardless of any rows that may already exist for the week.
+    if (selectedWeek?.status === "in_progress") {
+      setManifestState("idle");
+      return;
+    }
+
+    let cancelled = false;
     setManifestState("loading");
 
     fetch(`/api/render/${selected}/manifest.json`)
@@ -108,7 +121,7 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
     return () => {
       cancelled = true;
     };
-  }, [selected]);
+  }, [selected, selectedWeek]);
 
   // Prefetch all slide PNGs in the background as soon as the manifest is
   // known. Two wins:
@@ -159,7 +172,7 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
   return (
     <main className="mx-auto flex min-h-screen max-w-[800px] flex-col gap-8 px-8 py-24">
       <header className="flex flex-col gap-1">
-        <h1 className="font-cabinet text-3xl font-semibold">Kudos</h1>
+        <h1 className="text-3xl font-semibold">Kudos</h1>
         <p className="text-base text-muted-foreground">
           Weekly wins, ready to paste into Figma.
         </p>
@@ -174,6 +187,7 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
           <section className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Select value={selected} onValueChange={setSelected}>
               <SelectTrigger className="flex-1">
+                <Calendar />
                 <SelectValue placeholder="Pick a week" />
               </SelectTrigger>
               <SelectContent>
@@ -187,15 +201,19 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
             <Button
               disabled={!manifest || manifest.slideCount === 0}
               asChild={Boolean(manifest && manifest.slideCount > 0)}
-              className="bg-[#FF593F] text-white hover:bg-[#FF593F]/90"
+              className="h-11 whitespace-nowrap bg-[#FF593F] text-white hover:bg-[#FF593F]/90"
             >
               {manifest && manifest.slideCount > 0 ? (
-                <a href={`/api/render/${selected}/all.zip`} download>
+                <a
+                  href={`/api/render/${selected}/all.zip`}
+                  download
+                  className="inline-flex items-center gap-2"
+                >
                   <Download className="size-4" />
                   Download All
                 </a>
               ) : (
-                <span>
+                <span className="inline-flex items-center gap-2">
                   <Download className="size-4" />
                   Download All
                 </span>
@@ -203,9 +221,15 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
             </Button>
           </section>
 
-          {manifestState === "loading" ? <FeedSkeleton /> : null}
-
-          {manifestState === "error" ? (
+          {selectedWeek?.status === "in_progress" ? (
+            <EmptyState
+              imageSrc="/assets/locked.png"
+              title="Wins are locked"
+              body="This week's submissions stay private until Thursday 12:00 London time. Check back then."
+            />
+          ) : manifestState === "loading" ? (
+            <FeedSkeleton />
+          ) : manifestState === "error" ? (
             <p className="text-base text-destructive">
               Couldn&apos;t load this week.{" "}
               <button
@@ -215,9 +239,13 @@ export function CopyPage({ weeks }: { weeks: WeekListItem[] }) {
                 Refresh
               </button>
             </p>
-          ) : null}
-
-          {manifest ? (
+          ) : manifest && manifest.slideCount === 0 ? (
+            <EmptyState
+              imageSrc="/assets/empty.png"
+              title="No wins this week"
+              body="Nobody submitted a kudos for this week. The dropdown lets you jump to a different week above."
+            />
+          ) : manifest ? (
             <>
               <p className="text-base text-muted-foreground">
                 {manifest.slideCount}{" "}
@@ -324,7 +352,7 @@ function WinCard({
           </Button>
         </div>
 
-        <p className="text-base leading-snug text-foreground line-clamp-2">
+        <p className="border-l-2 border-zinc-700 pl-4 text-base leading-[1.6] text-foreground line-clamp-2">
           {slide.messagePreview}
         </p>
 
@@ -354,10 +382,7 @@ function RecipientStack({
     <div className="flex items-center gap-2">
       <div className="flex -space-x-2">
         {recipients.map((r) => (
-          <Avatar
-            key={r.slackUserId}
-            className="size-6 border-2 border-background"
-          >
+          <Avatar key={r.slackUserId} className="size-6">
             <Image
               src={r.headshotPath}
               alt={r.fullName}
@@ -394,6 +419,34 @@ function copyButtonLabel(state: CopyState): string {
     default:
       return "Copy";
   }
+}
+
+function EmptyState({
+  imageSrc,
+  title,
+  body,
+}: {
+  imageSrc: string;
+  title: string;
+  body: string;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center justify-center gap-6 py-16 text-center">
+        <Image
+          src={imageSrc}
+          alt=""
+          width={120}
+          height={120}
+          className="opacity-90"
+        />
+        <div className="flex flex-col gap-2">
+          <h2 className="text-xl font-semibold">{title}</h2>
+          <p className="max-w-md text-base text-muted-foreground">{body}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function FeedSkeleton() {
