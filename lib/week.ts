@@ -194,8 +194,8 @@ function nextThursdayLondon(now: Date): { year: number; month: number; day: numb
   const today = WEEKDAY_NUMBER[parts.weekday] ?? 0;
 
   let daysUntil = (4 - today + 7) % 7; // 4 = Thursday
-  if (daysUntil === 0 && parts.hour >= 17) {
-    daysUntil = 7; // already past today's last reminder, go to next week
+  if (daysUntil === 0 && parts.hour >= 16) {
+    daysUntil = 7; // already at/past today's last reminder (16:00), go to next week
   }
 
   const anchor = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, 12, 0, 0));

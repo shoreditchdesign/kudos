@@ -210,6 +210,7 @@ export async function scheduleThursdayReminders(input: {
   appBaseUrl: string;
 }): Promise<{
   scheduled: Array<{ slot: ReminderSlot; postAt: number; messageId: string }>;
+  skipped: Array<{ slot: ReminderSlot; postAt: number }>;
   cancelledExisting: number;
 }> {
   const now = input.now ?? new Date();
@@ -231,8 +232,19 @@ export async function scheduleThursdayReminders(input: {
     postAt: number;
     messageId: string;
   }> = [];
+  const skipped: Array<{ slot: ReminderSlot; postAt: number }> = [];
+
+  // Slack rejects any post_at in the past with `time_in_past`. If this runs
+  // late (a delayed GitHub Action, or a same-day manual re-run), some slots
+  // may already have passed — skip those rather than throwing, so the
+  // remaining slots still get queued.
+  const nowSec = Math.floor(now.getTime() / 1000);
 
   for (const slot of Object.keys(REMINDER_HOURS_LONDON) as ReminderSlot[]) {
+    if (timestamps[slot] <= nowSec) {
+      skipped.push({ slot, postAt: timestamps[slot] });
+      continue;
+    }
     const payload = REMINDERS[slot](input.appBaseUrl);
     const res = await slack().chat.scheduleMessage({
       channel: input.channel,
@@ -253,7 +265,7 @@ export async function scheduleThursdayReminders(input: {
     });
   }
 
-  return { scheduled, cancelledExisting };
+  return { scheduled, skipped, cancelledExisting };
 }
 
 async function clearExistingInWindow(input: {

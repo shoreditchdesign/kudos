@@ -1,17 +1,24 @@
 name: Schedule Bot for Week
 
-# Fires Thursday morning UTC. The endpoint it calls uses Slack's
-# chat.scheduleMessage to queue all four reminders at the exact London
-# times (09:00, 12:00, 15:00, 16:00) — Slack delivers them precisely.
+# Fires Wednesday night UTC, the day BEFORE the reminders go out. The
+# endpoint it calls uses Slack's chat.scheduleMessage to queue all four
+# Thursday reminders at the exact London times (09:00, 12:00, 15:00,
+# 16:00) — Slack delivers them precisely.
 #
-# 06:00 UTC is 07:00 BST in summer and 06:00 GMT in winter. Either way,
-# we're scheduling well ahead of the 09:00 London first-call.
+# Why Wednesday night and not Thursday 06:00? GitHub Actions runs scheduled
+# workflows on a best-effort basis and routinely delays them by hours under
+# load. A Thursday-06:00 cron was firing as late as 10:16 UTC (11:16 London),
+# by which point the 09:00 first-call slot was already in the past and Slack
+# rejected it with `time_in_past`. Firing at 22:00 UTC Wednesday leaves a
+# ~10-hour buffer, so even a multi-hour delay still lands well before 09:00
+# London. nextThursdayLondon() correctly targets the upcoming Thursday.
 #
 # `workflow_dispatch` lets you run the workflow manually from the GitHub
-# Actions tab — useful for testing or recovering from a failed Thursday.
+# Actions tab — useful for testing or recovering from a failed run. Re-runs
+# are idempotent: the endpoint clears the existing batch before re-queuing.
 on:
   schedule:
-    - cron: "0 6 * * 4"
+    - cron: "0 22 * * 3"
   workflow_dispatch:
 
 jobs:
