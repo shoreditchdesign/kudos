@@ -21,6 +21,12 @@ const FALLBACK_HEADSHOT = "/headshots/computer.png";
 
 export const MEMBERS: Member[] = [
   {
+    slackUserId: "U0B7T8NV672",
+    email: "alex.gibson@shoreditchdesignstudio.com",
+    fullName: "Alex Gibson",
+    headshotPath: "/headshots/alex-gibson.png",
+  },
+  {
     slackUserId: "U0AHFTSU0B1",
     email: "alex@shoreditchdesignstudio.com",
     fullName: "Alex Vojtku",
