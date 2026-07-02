@@ -153,6 +153,12 @@ export const MEMBERS: Member[] = [
     headshotPath: "/headshots/simon-patel.png",
   },
   {
+    slackUserId: "U0BDY9LC9AQ",
+    email: "verren@shoreditchdesignstudio.com",
+    fullName: "Verren Cook",
+    headshotPath: "/headshots/verren-cook.png",
+  },
+  {
     slackUserId: "UNNS67WTH",
     email: "will@shoreditchdesignstudio.com",
     fullName: "Will Gregson",
