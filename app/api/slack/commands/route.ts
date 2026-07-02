@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 //
 // We must respond within 3 seconds. Opening a modal requires a
 // `trigger_id` from the slash payload and a `views.open` API call, which we
-// fire-and-forget after the 200 has gone out.
+// await before the 200 goes out (see comment at the call site).
 export async function POST(req: Request) {
   const rawBody = await req.text();
 
@@ -36,13 +36,14 @@ export async function POST(req: Request) {
     );
   }
 
-  // Fire and forget — Slack's 3s deadline applies to this HTTP response, not
-  // to the modal-open call.
-  void slack()
-    .views.open({ trigger_id: triggerId, view: winModalView() })
-    .catch((err: unknown) => {
-      console.error("[slack:commands] views.open failed", err);
-    });
+  // Must be awaited: on serverless the instance freezes once the response is
+  // returned, so a fire-and-forget call often never reaches Slack. views.open
+  // is fast enough to fit inside Slack's 3s ack window.
+  try {
+    await slack().views.open({ trigger_id: triggerId, view: winModalView() });
+  } catch (err: unknown) {
+    console.error("[slack:commands] views.open failed", err);
+  }
 
   return new NextResponse(null, { status: 200 });
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { verifySlackRequest } from "@/lib/slack/verify";
 import {
   MODAL_CALLBACK_ID,
@@ -41,7 +41,6 @@ export async function POST(req: Request) {
   }
 
   // Block-level button clicks (e.g. "Send a win" from a reminder post).
-  // The "Open copy page" button is URL-only and never reaches us.
   if (payload.type === "block_actions") {
     const triggerId = (payload as { trigger_id?: string }).trigger_id;
     const actions =
@@ -49,11 +48,17 @@ export async function POST(req: Request) {
     const actionId = actions[0]?.action_id;
 
     if (actionId === REMINDER_ACTION_IDS.openWinModal && triggerId) {
-      void slack()
-        .views.open({ trigger_id: triggerId, view: winModalView() })
-        .catch((err: unknown) => {
-          console.error("[slack:interactions] views.open failed", err);
+      // Must be awaited: on serverless the instance freezes once the response
+      // is returned, so a fire-and-forget call often never reaches Slack.
+      // views.open is fast enough to fit inside Slack's 3s ack window.
+      try {
+        await slack().views.open({
+          trigger_id: triggerId,
+          view: winModalView(),
         });
+      } catch (err: unknown) {
+        console.error("[slack:interactions] views.open failed", err);
+      }
     }
     return new NextResponse(null, { status: 200 });
   }
@@ -96,9 +101,13 @@ export async function POST(req: Request) {
   }
 
   // Side-effects: ephemeral confirmation + missing-roster warnings.
-  void sendConfirmation(submission).catch((err: unknown) => {
-    console.error("[slack:interactions] confirmation send failed", err);
-  });
+  // after() keeps the instance alive past the response, so this survives
+  // the serverless freeze without delaying the modal close.
+  after(
+    sendConfirmation(submission).catch((err: unknown) => {
+      console.error("[slack:interactions] confirmation send failed", err);
+    }),
+  );
 
   // Close the modal.
   return NextResponse.json({ response_action: "clear" });

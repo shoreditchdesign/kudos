@@ -20,7 +20,6 @@ type ReminderPayload = {
 };
 
 const ACTION_OPEN_WIN_MODAL = "open_win_modal";
-const ACTION_OPEN_COPY_PAGE = "open_copy_page";
 
 function morning(): ReminderPayload {
   return {
@@ -124,9 +123,9 @@ function lastCall(): ReminderPayload {
   };
 }
 
-function closed(appBaseUrl: string): ReminderPayload {
+function closed(): ReminderPayload {
   return {
-    text: `This week's wins are in. Copy them at ${appBaseUrl}.`,
+    text: "This week's wins are in.",
     blocks: [
       {
         type: "section",
@@ -137,18 +136,6 @@ function closed(appBaseUrl: string): ReminderPayload {
             "Wins closed for this week. See you at End of Week!",
         },
       },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: { type: "plain_text", text: "Copy Wins", emoji: true },
-            url: appBaseUrl,
-            style: "primary",
-            action_id: ACTION_OPEN_COPY_PAGE,
-          },
-        ],
-      },
     ],
   };
 }
@@ -157,7 +144,7 @@ const REMINDERS: Record<ReminderSlot, (appBaseUrl: string) => ReminderPayload> =
   morning: () => morning(),
   midday: () => midday(),
   last_call: () => lastCall(),
-  closed,
+  closed: () => closed(),
 };
 
 /**
@@ -310,5 +297,4 @@ async function clearExistingInWindow(input: {
 // route correctly without re-importing the action_id constant string.
 export const REMINDER_ACTION_IDS = {
   openWinModal: ACTION_OPEN_WIN_MODAL,
-  openCopyPage: ACTION_OPEN_COPY_PAGE,
 } as const;
